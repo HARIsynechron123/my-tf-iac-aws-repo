@@ -1,55 +1,39 @@
-provider "aws" {
-  region = var.aws_region
+terraform {
+   required_version = ">= 0.12.26"
 }
 
-#Create security group with firewall rules
-resource "aws_security_group" "my_security_group" {
-  name        = var.security_group
-  description = "security group for Ec2 instance"
+provider "aws" {
+  region = "us-east-2"
+  access_key = "AKIAXXTFJVECFPDZCVGF"
+  secret_key = "3Xj6euAC9niaiWPW98dO+84nQvWhyaObjAzfVoih"
+}
 
+# Deploy an EC2 Instance.
+resource "aws_instance" "example" {
+  # Run an Ubuntu 18.04 AMI on the EC2 instance.
+  ami                    = "ami-0d5d9d301c853a04a"
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.instance.id]
+
+  # When the instance boots, start a web server on port 8080 that responds with "Hello, World!".
+  user_data = <<EOF
+#!/bin/bash
+echo "Hello, World!" > index.html
+nohup busybox httpd -f -p 8080 &
+EOF
+}
+
+# Allow the instance to receive requests on port 8080.
+resource "aws_security_group" "instance" {
   ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
- ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
- # outbound from jenkis server
-  egress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags= {
-    Name = var.security_group
-  }
 }
 
-# Create AWS ec2 instance
-resource "aws_instance" "myFirstInstance" {
-  ami           = var.ami_id
-  key_name = var.key_name
-  instance_type = var.instance_type
-  security_groups= [var.security_group]
-  tags= {
-    Name = var.tag_name
-  }
-}
-
-# Create Elastic IP address
-resource "aws_eip" "myFirstInstance" {
-  vpc      = true
-  instance = aws_instance.myFirstInstance.id
-tags= {
-    Name = "my_elastic_ip"
-  }
+# Output the instance's public IP address.
+output "public_ip" {
+  value = aws_instance.example.public_ip
 }
